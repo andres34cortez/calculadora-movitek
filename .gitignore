@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+/movitek-mobile*.png
+/paso-*.png
 
 # debug
 npm-debug.log*
