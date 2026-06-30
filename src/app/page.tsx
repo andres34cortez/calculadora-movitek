@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type PhoneModel = {
   name: string;
@@ -19,6 +19,18 @@ type PriceItem = {
   stock: "Disponible" | "Consultar";
   condition: DeviceCondition;
   battery?: number;
+};
+
+type SheetQuote = {
+  usdPrice: number;
+  pesosPrice: number;
+  installments: {
+    three: number;
+    six: number;
+    twelve: number;
+  };
+  dollarBlue: number;
+  updatedAt: string;
 };
 
 const phoneModels: PhoneModel[] = [
@@ -143,7 +155,7 @@ const installmentRates = {
   cash: 1,
   three: 1.12,
   six: 1.24,
-  nine: 1.38,
+  twelve: 1.52,
 };
 
 const currency = new Intl.NumberFormat("es-AR", {
@@ -156,6 +168,10 @@ const movitekWhatsapp = "2645555650";
 
 function pesoValue(usdPrice: number, rate = installmentRates.cash) {
   return usdPrice * dollarRate * rate;
+}
+
+function fallbackInstallment(usdPrice: number, rate: number, installments: number) {
+  return pesoValue(usdPrice, rate) / installments;
 }
 
 function getDeviceLabel(device: PriceItem) {
@@ -235,6 +251,39 @@ export default function Home() {
   const [hasCalculated, setHasCalculated] = useState(false);
   const [condition, setCondition] = useState<DeviceCondition>("new");
   const [selectedDeviceId, setSelectedDeviceId] = useState("new-ip15-128-black");
+  const [sheetQuote, setSheetQuote] = useState<SheetQuote | null>(null);
+  const [sheetStatus, setSheetStatus] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSheetQuote() {
+      try {
+        const response = await fetch("/api/google-sheet", { cache: "no-store" });
+
+        if (!response.ok) {
+          throw new Error("Sheet unavailable");
+        }
+
+        const data = (await response.json()) as SheetQuote;
+
+        if (isMounted) {
+          setSheetQuote(data);
+          setSheetStatus("ready");
+        }
+      } catch {
+        if (isMounted) {
+          setSheetStatus("error");
+        }
+      }
+    }
+
+    loadSheetQuote();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const currentModel = useMemo(
     () => phoneModels.find((model) => model.name === currentModelName) ?? phoneModels[0],
@@ -249,27 +298,37 @@ export default function Home() {
   const selectedDevice =
     availableDevices.find((device) => device.id === selectedDeviceId) ?? availableDevices[0];
 
+  const quoteUsdPrice = sheetQuote?.usdPrice ?? selectedDevice?.usdPrice ?? 0;
+  const quoteCashPrice = sheetQuote?.pesosPrice ?? pesoValue(quoteUsdPrice);
+  const activeDollarRate = sheetQuote?.dollarBlue ?? dollarRate;
+
   const paymentOptions = selectedDevice
     ? [
         {
           label: "Contado",
-          amount: pesoValue(selectedDevice.usdPrice),
-          detail: "Transferencia o efectivo",
+          amount: quoteCashPrice,
+          detail: "Precio en pesos",
         },
         {
           label: "3 cuotas",
-          amount: pesoValue(selectedDevice.usdPrice, installmentRates.three) / 3,
-          detail: "Valor por cuota",
+          amount:
+            sheetQuote?.installments.three ??
+            fallbackInstallment(quoteUsdPrice, installmentRates.three, 3),
+          detail: "Cuotas con tarjeta",
         },
         {
           label: "6 cuotas",
-          amount: pesoValue(selectedDevice.usdPrice, installmentRates.six) / 6,
-          detail: "Valor por cuota",
+          amount:
+            sheetQuote?.installments.six ??
+            fallbackInstallment(quoteUsdPrice, installmentRates.six, 6),
+          detail: "Cuotas con tarjeta",
         },
         {
-          label: "9 cuotas",
-          amount: pesoValue(selectedDevice.usdPrice, installmentRates.nine) / 9,
-          detail: "Valor por cuota",
+          label: "12 cuotas",
+          amount:
+            sheetQuote?.installments.twelve ??
+            fallbackInstallment(quoteUsdPrice, installmentRates.twelve, 12),
+          detail: "Cuotas con tarjeta",
         },
       ]
     : [];
@@ -283,7 +342,9 @@ export default function Home() {
           selectedDevice,
         )}, ${selectedDevice.color}.`,
         selectedDevice.battery ? `Bateria del equipo usado: ${selectedDevice.battery}%.` : "",
-        `Precio contado estimado: ${currency.format(pesoValue(selectedDevice.usdPrice))}.`,
+        `Precio USD segun planilla: US$ ${quoteUsdPrice}.`,
+        `Precio contado estimado: ${currency.format(quoteCashPrice)}.`,
+        `Dolar blue usado: ${activeDollarRate}.`,
         "Me pasan la cotizacion final?",
       ]
         .filter(Boolean)
@@ -337,6 +398,13 @@ export default function Home() {
               </h2>
               <p className="mt-1 text-sm text-[#9aa7b4]">
                 Completa estos datos para calcular opciones disponibles.
+              </p>
+              <p className="mt-3 inline-flex rounded-md border border-[#00e5ff]/25 bg-[#00e5ff]/10 px-3 py-1 text-xs font-semibold text-[#72f3ff]">
+                {sheetStatus === "ready"
+                  ? "Google Sheet conectado"
+                  : sheetStatus === "loading"
+                    ? "Leyendo Google Sheet..."
+                    : "Usando valores de respaldo"}
               </p>
             </div>
           </div>
@@ -512,9 +580,20 @@ export default function Home() {
               <h2 className="mt-2 text-2xl font-semibold">
                 {selectedDevice ? getDeviceLabel(selectedDevice) : "Sin equipo"}
               </h2>
+              <p className="mt-2 text-sm text-[#9aa7b4]">
+                Los importes de contado y cuotas salen de la hoja "simular cuotas".
+              </p>
               {selectedDevice ? (
                 <>
                   <dl className="mt-5 grid gap-3 text-sm">
+                    <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                      <dt className="text-[#9aa7b4]">Precio USD planilla</dt>
+                      <dd className="font-medium">US$ {quoteUsdPrice}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                      <dt className="text-[#9aa7b4]">Dolar blue</dt>
+                      <dd className="font-medium">{currency.format(activeDollarRate)}</dd>
+                    </div>
                     <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
                       <dt className="text-[#9aa7b4]">Tu equipo</dt>
                       <dd className="text-right font-medium">
