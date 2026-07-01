@@ -625,7 +625,8 @@ export default function Home() {
             </span>
           </label>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          {hasTradeIn ? (
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-2">
               <span className="text-sm font-medium text-[#dfe6ee]">Modelo</span>
               <select
@@ -715,7 +716,8 @@ export default function Home() {
                 ))}
               </select>
             </label>
-          </div>
+            </div>
+          ) : null}
 
           <button
             type="button"
@@ -772,17 +774,7 @@ export default function Home() {
                   </p>
                 )}
               </section>
-            ) : (
-              <section className="rounded-lg border border-[#00e5ff]/25 bg-[#081018] p-4 text-white shadow-[0_0_44px_rgba(0,229,255,0.08)] sm:p-6">
-                <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#72f3ff]">
-                  Compra sin plan canje
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold">No se descuenta equipo usado</h2>
-                <p className="mt-2 text-sm text-[#9aa7b4]">
-                  La cotizacion se calcula sobre el valor completo del equipo elegido.
-                </p>
-              </section>
-            )}
+            ) : null}
 
             <section className="rounded-lg border border-white/10 bg-[#0b1118] p-4 shadow-sm sm:p-6">
               <h2 className="text-xl font-semibold text-white">Que equipo estas buscando?</h2>
