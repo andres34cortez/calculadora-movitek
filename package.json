@@ -6,9 +6,9 @@
     "node": "22.x"
   },
   "scripts": {
-    "dev": "npx --yes -p node@22 node node_modules/next/dist/bin/next dev",
-    "build": "npx --yes -p node@22 node node_modules/next/dist/bin/next build",
-    "start": "npx --yes -p node@22 node node_modules/next/dist/bin/next start",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "eslint ."
   },
   "dependencies": {
