@@ -21,6 +21,18 @@ type PriceItem = {
   battery?: number;
 };
 
+type CustomerQuote = {
+  model: string;
+  storage: string;
+  color: string;
+  battery: number;
+  baseUsd: number;
+  batteryAdjustmentPercent: number;
+  usdPrice: number;
+  pesosPrice: number;
+  source: string;
+};
+
 type SheetQuote = {
   usdPrice: number;
   pesosPrice: number;
@@ -30,6 +42,7 @@ type SheetQuote = {
     twelve: number;
   };
   dollarBlue: number;
+  customerQuote: CustomerQuote | null;
   updatedAt: string;
 };
 
@@ -50,9 +63,24 @@ const phoneModels: PhoneModel[] = [
     colors: ["Space Gray", "Silver", "Gold"],
   },
   {
+    name: "iPhone XS Max",
+    storage: ["64 GB", "256 GB", "512 GB"],
+    colors: ["Space Gray", "Silver", "Gold"],
+  },
+  {
     name: "iPhone 11",
     storage: ["64 GB", "128 GB", "256 GB"],
     colors: ["Black", "White", "Green", "Yellow", "Purple", "Red"],
+  },
+  {
+    name: "iPhone 11 Pro",
+    storage: ["64 GB", "256 GB", "512 GB"],
+    colors: ["Space Gray", "Silver", "Gold", "Midnight Green"],
+  },
+  {
+    name: "iPhone 11 Pro Max",
+    storage: ["64 GB", "256 GB", "512 GB"],
+    colors: ["Space Gray", "Silver", "Gold", "Midnight Green"],
   },
   {
     name: "iPhone 12",
@@ -60,9 +88,29 @@ const phoneModels: PhoneModel[] = [
     colors: ["Black", "White", "Blue", "Green", "Purple", "Red"],
   },
   {
+    name: "iPhone 12 Pro",
+    storage: ["128 GB", "256 GB", "512 GB"],
+    colors: ["Graphite", "Silver", "Gold", "Pacific Blue"],
+  },
+  {
+    name: "iPhone 12 Pro Max",
+    storage: ["128 GB", "256 GB", "512 GB"],
+    colors: ["Graphite", "Silver", "Gold", "Pacific Blue"],
+  },
+  {
     name: "iPhone 13",
     storage: ["128 GB", "256 GB", "512 GB"],
     colors: ["Midnight", "Starlight", "Blue", "Pink", "Green", "Red"],
+  },
+  {
+    name: "iPhone 13 Pro",
+    storage: ["128 GB", "256 GB", "512 GB", "1 TB"],
+    colors: ["Graphite", "Silver", "Gold", "Sierra Blue", "Alpine Green"],
+  },
+  {
+    name: "iPhone 13 Pro Max",
+    storage: ["128 GB", "256 GB", "512 GB", "1 TB"],
+    colors: ["Graphite", "Silver", "Gold", "Sierra Blue", "Alpine Green"],
   },
   {
     name: "iPhone 14",
@@ -70,14 +118,44 @@ const phoneModels: PhoneModel[] = [
     colors: ["Midnight", "Starlight", "Blue", "Purple", "Yellow", "Red"],
   },
   {
+    name: "iPhone 14 Pro",
+    storage: ["128 GB", "256 GB", "512 GB", "1 TB"],
+    colors: ["Space Black", "Silver", "Gold", "Deep Purple"],
+  },
+  {
+    name: "iPhone 14 Pro Max",
+    storage: ["128 GB", "256 GB", "512 GB", "1 TB"],
+    colors: ["Space Black", "Silver", "Gold", "Deep Purple"],
+  },
+  {
     name: "iPhone 15",
     storage: ["128 GB", "256 GB", "512 GB"],
     colors: ["Black", "Blue", "Green", "Yellow", "Pink"],
   },
   {
+    name: "iPhone 15 Pro",
+    storage: ["128 GB", "256 GB", "512 GB", "1 TB"],
+    colors: ["Black Titanium", "White Titanium", "Blue Titanium", "Natural Titanium"],
+  },
+  {
+    name: "iPhone 15 Pro Max",
+    storage: ["256 GB", "512 GB", "1 TB"],
+    colors: ["Black Titanium", "White Titanium", "Blue Titanium", "Natural Titanium"],
+  },
+  {
     name: "iPhone 16",
     storage: ["128 GB", "256 GB", "512 GB"],
     colors: ["Black", "White", "Teal", "Ultramarine", "Pink"],
+  },
+  {
+    name: "iPhone 16 Pro",
+    storage: ["128 GB", "256 GB", "512 GB", "1 TB"],
+    colors: ["Black Titanium", "White Titanium", "Natural Titanium", "Desert Titanium"],
+  },
+  {
+    name: "iPhone 16 Pro Max",
+    storage: ["256 GB", "512 GB", "1 TB"],
+    colors: ["Black Titanium", "White Titanium", "Natural Titanium", "Desert Titanium"],
   },
 ];
 
@@ -101,6 +179,24 @@ const priceList: PriceItem[] = [
     condition: "new",
   },
   {
+    id: "new-ip15pro-128-natural",
+    model: "iPhone 15 Pro",
+    storage: "128 GB",
+    color: "Natural Titanium",
+    usdPrice: 1080,
+    stock: "Disponible",
+    condition: "new",
+  },
+  {
+    id: "new-ip15promax-256-blue",
+    model: "iPhone 15 Pro Max",
+    storage: "256 GB",
+    color: "Blue Titanium",
+    usdPrice: 1280,
+    stock: "Consultar",
+    condition: "new",
+  },
+  {
     id: "new-ip16-128-teal",
     model: "iPhone 16",
     storage: "128 GB",
@@ -119,6 +215,24 @@ const priceList: PriceItem[] = [
     condition: "new",
   },
   {
+    id: "new-ip16pro-128-natural",
+    model: "iPhone 16 Pro",
+    storage: "128 GB",
+    color: "Natural Titanium",
+    usdPrice: 1320,
+    stock: "Disponible",
+    condition: "new",
+  },
+  {
+    id: "new-ip16promax-256-desert",
+    model: "iPhone 16 Pro Max",
+    storage: "256 GB",
+    color: "Desert Titanium",
+    usdPrice: 1490,
+    stock: "Consultar",
+    condition: "new",
+  },
+  {
     id: "used-ip13-128-midnight",
     model: "iPhone 13",
     storage: "128 GB",
@@ -127,6 +241,16 @@ const priceList: PriceItem[] = [
     stock: "Disponible",
     condition: "used",
     battery: 89,
+  },
+  {
+    id: "used-ip13pro-256-sierra",
+    model: "iPhone 13 Pro",
+    storage: "256 GB",
+    color: "Sierra Blue",
+    usdPrice: 690,
+    stock: "Disponible",
+    condition: "used",
+    battery: 88,
   },
   {
     id: "used-ip14-128-purple",
@@ -139,6 +263,16 @@ const priceList: PriceItem[] = [
     battery: 92,
   },
   {
+    id: "used-ip14promax-256-deeppurple",
+    model: "iPhone 14 Pro Max",
+    storage: "256 GB",
+    color: "Deep Purple",
+    usdPrice: 890,
+    stock: "Disponible",
+    condition: "used",
+    battery: 90,
+  },
+  {
     id: "used-ip15-128-black",
     model: "iPhone 15",
     storage: "128 GB",
@@ -147,6 +281,16 @@ const priceList: PriceItem[] = [
     stock: "Disponible",
     condition: "used",
     battery: 95,
+  },
+  {
+    id: "used-ip15pro-128-natural",
+    model: "iPhone 15 Pro",
+    storage: "128 GB",
+    color: "Natural Titanium",
+    usdPrice: 980,
+    stock: "Disponible",
+    condition: "used",
+    battery: 93,
   },
 ];
 
@@ -164,7 +308,7 @@ const currency = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0,
 });
 
-const movitekWhatsapp = "2645555650";
+const movitekWhatsapp = "5492645850362";
 
 function pesoValue(usdPrice: number, rate = installmentRates.cash) {
   return usdPrice * dollarRate * rate;
@@ -172,6 +316,14 @@ function pesoValue(usdPrice: number, rate = installmentRates.cash) {
 
 function fallbackInstallment(usdPrice: number, rate: number, installments: number) {
   return pesoValue(usdPrice, rate) / installments;
+}
+
+function clampBattery(value: number) {
+  if (Number.isNaN(value)) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, Math.round(value)));
 }
 
 function getDeviceLabel(device: PriceItem) {
@@ -249,7 +401,8 @@ export default function Home() {
   const [battery, setBattery] = useState(86);
   const [color, setColor] = useState(phoneModels[3].colors[0]);
   const [hasCalculated, setHasCalculated] = useState(false);
-  const [condition, setCondition] = useState<DeviceCondition>("new");
+  const [condition, setCondition] = useState<DeviceCondition | null>(null);
+  const [isDeviceLoading, setIsDeviceLoading] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState("new-ip15-128-black");
   const [sheetQuote, setSheetQuote] = useState<SheetQuote | null>(null);
   const [sheetStatus, setSheetStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -259,7 +412,15 @@ export default function Home() {
 
     async function loadSheetQuote() {
       try {
-        const response = await fetch("/api/google-sheet", { cache: "no-store" });
+        const params = new URLSearchParams({
+          model: currentModelName,
+          storage,
+          battery: String(battery),
+          color,
+        });
+        const response = await fetch(`/api/google-sheet?${params.toString()}`, {
+          cache: "no-store",
+        });
 
         if (!response.ok) {
           throw new Error("Sheet unavailable");
@@ -283,7 +444,21 @@ export default function Home() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [battery, color, currentModelName, storage]);
+
+  useEffect(() => {
+    if (!hasCalculated || !condition) {
+      setIsDeviceLoading(false);
+      return;
+    }
+
+    setIsDeviceLoading(true);
+    const timer = window.setTimeout(() => {
+      setIsDeviceLoading(false);
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [condition, hasCalculated]);
 
   const currentModel = useMemo(
     () => phoneModels.find((model) => model.name === currentModelName) ?? phoneModels[0],
@@ -291,7 +466,7 @@ export default function Home() {
   );
 
   const availableDevices = useMemo(
-    () => priceList.filter((device) => device.condition === condition),
+    () => (condition ? priceList.filter((device) => device.condition === condition) : []),
     [condition],
   );
 
@@ -301,6 +476,7 @@ export default function Home() {
   const quoteUsdPrice = sheetQuote?.usdPrice ?? selectedDevice?.usdPrice ?? 0;
   const quoteCashPrice = sheetQuote?.pesosPrice ?? pesoValue(quoteUsdPrice);
   const activeDollarRate = sheetQuote?.dollarBlue ?? dollarRate;
+  const customerQuote = sheetQuote?.customerQuote;
 
   const paymentOptions = selectedDevice
     ? [
@@ -338,6 +514,11 @@ export default function Home() {
         "Hola Movitek, quiero recibir una cotizacion.",
         "",
         `Mi equipo actual: ${currentModelName} ${storage}, color ${color}, bateria ${battery}%.`,
+        customerQuote
+          ? `Cotizacion estimada de mi equipo: US$ ${customerQuote.usdPrice} / ${currency.format(
+              customerQuote.pesosPrice,
+            )}.`
+          : "",
         `Quiero un equipo ${condition === "new" ? "nuevo" : "usado"}: ${getDeviceLabel(
           selectedDevice,
         )}, ${selectedDevice.color}.`,
@@ -373,6 +554,8 @@ export default function Home() {
 
   function handleCalculate() {
     setHasCalculated(true);
+    setCondition(null);
+    setIsDeviceLoading(false);
   }
 
   return (
@@ -458,19 +641,23 @@ export default function Home() {
                   </span>
                 </button>
               </span>
-              <div className="flex h-12 items-center gap-3 rounded-md border border-white/10 bg-[#111923] px-3">
+              <div className="relative flex h-12 items-center rounded-md border border-white/10 bg-[#111923]">
                 <input
-                  type="range"
-                  min="50"
+                  type="number"
+                  min="0"
                   max="100"
+                  step="1"
+                  inputMode="numeric"
                   value={battery}
                   onChange={(event) => {
-                    setBattery(Number(event.target.value));
+                    setBattery(clampBattery(Number(event.target.value)));
                     setHasCalculated(false);
                   }}
-                  className="w-full accent-[#00e5ff]"
+                  className="h-full w-full rounded-md bg-transparent px-3 pr-10 text-base text-white outline-none transition focus:ring-4 focus:ring-[#00e5ff]/15"
                 />
-                <output className="w-12 text-right font-semibold text-white">{battery}%</output>
+                <span className="pointer-events-none absolute right-3 text-sm font-semibold text-[#72f3ff]">
+                  %
+                </span>
               </div>
             </label>
 
@@ -504,12 +691,56 @@ export default function Home() {
 
         {hasCalculated ? (
           <>
+            <section className="rounded-lg border border-[#00e5ff]/25 bg-[#081018] p-4 text-white shadow-[0_0_44px_rgba(0,229,255,0.08)] sm:p-6">
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#72f3ff]">
+                Cotizacion de tu equipo
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold">
+                {currentModelName} {storage}
+              </h2>
+              <dl className="mt-5 grid gap-3 text-sm">
+                <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                  <dt className="text-[#9aa7b4]">Color</dt>
+                  <dd className="text-right font-medium">{color}</dd>
+                </div>
+                <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                  <dt className="text-[#9aa7b4]">Bateria</dt>
+                  <dd className="font-medium">{battery}%</dd>
+                </div>
+                <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                  <dt className="text-[#9aa7b4]">Dolar blue</dt>
+                  <dd className="font-medium">{currency.format(activeDollarRate)}</dd>
+                </div>
+              </dl>
+
+              {customerQuote ? (
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <article className="rounded-lg border border-white/10 bg-white/[0.07] p-4">
+                    <p className="text-sm text-[#9aa7b4]">Valor estimado</p>
+                    <strong className="mt-2 block text-2xl text-white">
+                      US$ {customerQuote.usdPrice}
+                    </strong>
+                  </article>
+                  <article className="rounded-lg border border-white/10 bg-white/[0.07] p-4">
+                    <p className="text-sm text-[#9aa7b4]">Equivalente en pesos</p>
+                    <strong className="mt-2 block text-2xl text-white">
+                      {currency.format(customerQuote.pesosPrice)}
+                    </strong>
+                  </article>
+                </div>
+              ) : (
+                <p className="mt-5 rounded-md border border-[#ff00c8]/25 bg-[#ff00c8]/10 px-3 py-2 text-sm text-[#ffd7f5]">
+                  Todavia no hay una cotizacion cargada para este modelo y memoria.
+                </p>
+              )}
+            </section>
+
             <section className="rounded-lg border border-white/10 bg-[#0b1118] p-4 shadow-sm sm:p-6">
               <h2 className="text-xl font-semibold text-white">Que equipo estas buscando?</h2>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {[
-                  { value: "new" as const, label: "Nuevo", detail: "Stock del Excel" },
-                  { value: "used" as const, label: "Usado", detail: "Con bateria visible" },
+                  { value: "new" as const, label: "Nuevo" },
+                  { value: "used" as const, label: "Usado" },
                 ].map((option) => (
                   <button
                     key={option.value}
@@ -522,58 +753,64 @@ export default function Home() {
                     }`}
                   >
                     <span className="block font-semibold">{option.label}</span>
-                    <span className="mt-1 block text-sm text-[#9aa7b4]">{option.detail}</span>
                   </button>
                 ))}
               </div>
             </section>
 
-            <section className="rounded-lg border border-white/10 bg-[#0b1118] p-4 shadow-sm sm:p-6">
-              <h2 className="text-xl font-semibold text-white">
-                {condition === "new" ? "Celulares nuevos" : "Celulares usados"}
-              </h2>
-              <p className="mt-1 text-sm text-[#9aa7b4]">
-                Por ahora esta lista esta mockeada. Despues sale del Google Sheet.
-              </p>
+            {isDeviceLoading ? (
+              <section className="grid min-h-36 place-items-center rounded-lg border border-white/10 bg-[#0b1118] p-6">
+                <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-[#00e5ff]" />
+              </section>
+            ) : condition ? (
+              <section className="rounded-lg border border-white/10 bg-[#0b1118] p-4 shadow-sm sm:p-6">
+                <h2 className="text-xl font-semibold text-white">
+                  {condition === "new" ? "Celulares nuevos" : "Celulares usados"}
+                </h2>
+                <p className="mt-1 text-sm text-[#9aa7b4]">
+                  Por ahora es una lista de ejemplo despues sale del Google Sheet.
+                </p>
 
-              <div className="mt-5 grid gap-3">
-                {availableDevices.map((device) => (
-                  <label
-                    key={device.id}
-                    className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-4 transition ${
-                      selectedDevice.id === device.id
-                        ? "border-[#00e5ff] bg-[#00e5ff]/10"
-                        : "border-white/10 bg-[#111923] hover:border-[#ff00c8]/45"
-                    }`}
-                  >
-                    <span className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="device"
-                        value={device.id}
-                        checked={selectedDevice.id === device.id}
-                        onChange={(event) => setSelectedDeviceId(event.target.value)}
-                        className="h-4 w-4 accent-[#00e5ff]"
-                      />
-                      <span>
-                        <span className="block font-semibold text-white">
-                          {getDeviceLabel(device)}
-                        </span>
-                        <span className="block text-sm text-[#9aa7b4]">
-                          {device.color} · {device.stock}
-                          {device.battery ? ` · Bateria ${device.battery}%` : ""}
+                <div className="mt-5 grid gap-3">
+                  {availableDevices.map((device) => (
+                    <label
+                      key={device.id}
+                      className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-4 transition ${
+                        selectedDevice?.id === device.id
+                          ? "border-[#00e5ff] bg-[#00e5ff]/10"
+                          : "border-white/10 bg-[#111923] hover:border-[#ff00c8]/45"
+                      }`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="device"
+                          value={device.id}
+                          checked={selectedDevice?.id === device.id}
+                          onChange={(event) => setSelectedDeviceId(event.target.value)}
+                          className="h-4 w-4 accent-[#00e5ff]"
+                        />
+                        <span>
+                          <span className="block font-semibold text-white">
+                            {getDeviceLabel(device)}
+                          </span>
+                          <span className="block text-sm text-[#9aa7b4]">
+                            {device.color} · {device.stock}
+                            {device.battery ? ` · Bateria ${device.battery}%` : ""}
+                          </span>
                         </span>
                       </span>
-                    </span>
-                    <strong className="shrink-0 text-right text-[#72f3ff]">
-                      US$ {device.usdPrice}
-                    </strong>
-                  </label>
-                ))}
-              </div>
-            </section>
+                      <strong className="shrink-0 text-right text-[#72f3ff]">
+                        US$ {device.usdPrice}
+                      </strong>
+                    </label>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
-            <section className="rounded-lg border border-[#00e5ff]/25 bg-[#081018] p-4 text-white shadow-[0_0_44px_rgba(0,229,255,0.08)] sm:p-6">
+            {!isDeviceLoading && condition ? (
+              <section className="rounded-lg border border-[#00e5ff]/25 bg-[#081018] p-4 text-white shadow-[0_0_44px_rgba(0,229,255,0.08)] sm:p-6">
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#72f3ff]">
                 Cotizacion
               </p>
@@ -641,7 +878,8 @@ export default function Home() {
                   </a>
                 </>
               ) : null}
-            </section>
+              </section>
+            ) : null}
           </>
         ) : null}
       </section>
