@@ -9,6 +9,7 @@ type PhoneModel = {
 };
 
 type DeviceCondition = "new" | "used";
+type PaymentOptionId = "cash" | "three" | "six" | "twelve";
 
 type PriceItem = {
   id: string;
@@ -310,14 +311,6 @@ const currency = new Intl.NumberFormat("es-AR", {
 
 const movitekWhatsapp = "5492645850362";
 
-function pesoValue(usdPrice: number, rate = installmentRates.cash) {
-  return usdPrice * dollarRate * rate;
-}
-
-function fallbackInstallment(usdPrice: number, rate: number, installments: number) {
-  return pesoValue(usdPrice, rate) / installments;
-}
-
 function clampBattery(value: number) {
   if (Number.isNaN(value)) {
     return 0;
@@ -400,10 +393,12 @@ export default function Home() {
   const [storage, setStorage] = useState(phoneModels[3].storage[0]);
   const [battery, setBattery] = useState(86);
   const [color, setColor] = useState(phoneModels[3].colors[0]);
+  const [hasTradeIn, setHasTradeIn] = useState(true);
   const [hasCalculated, setHasCalculated] = useState(false);
   const [condition, setCondition] = useState<DeviceCondition | null>(null);
   const [isDeviceLoading, setIsDeviceLoading] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState("new-ip15-128-black");
+  const [selectedPaymentId, setSelectedPaymentId] = useState<PaymentOptionId>("cash");
   const [sheetQuote, setSheetQuote] = useState<SheetQuote | null>(null);
   const [sheetStatus, setSheetStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -465,56 +460,67 @@ export default function Home() {
     [currentModelName],
   );
 
+  const activeDollarRate = sheetQuote?.dollarBlue ?? dollarRate;
+  const customerQuote = sheetQuote?.customerQuote;
+  const tradeInUsdPrice = hasTradeIn ? (customerQuote?.usdPrice ?? 0) : 0;
+  const tradeInPesoPrice = hasTradeIn ? (customerQuote?.pesosPrice ?? 0) : 0;
   const availableDevices = useMemo(
-    () => (condition ? priceList.filter((device) => device.condition === condition) : []),
-    [condition],
+    () =>
+      condition
+        ? priceList.filter(
+            (device) => device.condition === condition && device.usdPrice > tradeInUsdPrice,
+          )
+        : [],
+    [condition, tradeInUsdPrice],
   );
 
   const selectedDevice =
     availableDevices.find((device) => device.id === selectedDeviceId) ?? availableDevices[0];
 
-  const quoteUsdPrice = sheetQuote?.usdPrice ?? selectedDevice?.usdPrice ?? 0;
-  const quoteCashPrice = sheetQuote?.pesosPrice ?? pesoValue(quoteUsdPrice);
-  const activeDollarRate = sheetQuote?.dollarBlue ?? dollarRate;
-  const customerQuote = sheetQuote?.customerQuote;
+  const selectedDeviceUsdPrice = selectedDevice?.usdPrice ?? 0;
+  const differenceUsdPrice = Math.max(selectedDeviceUsdPrice - tradeInUsdPrice, 0);
+  const selectedDevicePesoPrice = selectedDeviceUsdPrice * activeDollarRate;
+  const differenceCashPrice = differenceUsdPrice * activeDollarRate;
 
   const paymentOptions = selectedDevice
     ? [
         {
+          id: "cash" as const,
           label: "Contado",
-          amount: quoteCashPrice,
-          detail: "Precio en pesos",
+          amount: differenceCashPrice,
+          detail: "Diferencia a pagar",
         },
         {
+          id: "three" as const,
           label: "3 cuotas",
-          amount:
-            sheetQuote?.installments.three ??
-            fallbackInstallment(quoteUsdPrice, installmentRates.three, 3),
-          detail: "Cuotas con tarjeta",
+          amount: (differenceCashPrice * installmentRates.three) / 3,
+          detail: "Diferencia con tarjeta",
         },
         {
+          id: "six" as const,
           label: "6 cuotas",
-          amount:
-            sheetQuote?.installments.six ??
-            fallbackInstallment(quoteUsdPrice, installmentRates.six, 6),
-          detail: "Cuotas con tarjeta",
+          amount: (differenceCashPrice * installmentRates.six) / 6,
+          detail: "Diferencia con tarjeta",
         },
         {
+          id: "twelve" as const,
           label: "12 cuotas",
-          amount:
-            sheetQuote?.installments.twelve ??
-            fallbackInstallment(quoteUsdPrice, installmentRates.twelve, 12),
-          detail: "Cuotas con tarjeta",
+          amount: (differenceCashPrice * installmentRates.twelve) / 12,
+          detail: "Diferencia con tarjeta",
         },
       ]
     : [];
+  const selectedPayment =
+    paymentOptions.find((option) => option.id === selectedPaymentId) ?? paymentOptions[0];
 
   const whatsappMessage = selectedDevice
     ? [
         "Hola Movitek, quiero recibir una cotizacion.",
         "",
-        `Mi equipo actual: ${currentModelName} ${storage}, color ${color}, bateria ${battery}%.`,
-        customerQuote
+        hasTradeIn
+          ? `Mi equipo actual: ${currentModelName} ${storage}, color ${color}, bateria ${battery}%.`
+          : "No tengo equipo para plan canje.",
+        hasTradeIn && customerQuote
           ? `Cotizacion estimada de mi equipo: US$ ${customerQuote.usdPrice} / ${currency.format(
               customerQuote.pesosPrice,
             )}.`
@@ -523,8 +529,17 @@ export default function Home() {
           selectedDevice,
         )}, ${selectedDevice.color}.`,
         selectedDevice.battery ? `Bateria del equipo usado: ${selectedDevice.battery}%.` : "",
-        `Precio USD segun planilla: US$ ${quoteUsdPrice}.`,
-        `Precio contado estimado: ${currency.format(quoteCashPrice)}.`,
+        `Valor del equipo elegido: US$ ${selectedDeviceUsdPrice} / ${currency.format(
+          selectedDevicePesoPrice,
+        )}.`,
+        `Diferencia a pagar: US$ ${differenceUsdPrice} / ${currency.format(
+          differenceCashPrice,
+        )}.`,
+        selectedPayment
+          ? `Forma de pago elegida: ${selectedPayment.label} - ${currency.format(
+              selectedPayment.amount,
+            )}.`
+          : "",
         `Dolar blue usado: ${activeDollarRate}.`,
         "Me pasan la cotizacion final?",
       ]
@@ -545,11 +560,14 @@ export default function Home() {
   }
 
   function handleConditionChange(nextCondition: DeviceCondition) {
-    const firstDevice = priceList.find((device) => device.condition === nextCondition);
+    const firstDevice = priceList.find(
+      (device) => device.condition === nextCondition && device.usdPrice > tradeInUsdPrice,
+    );
     setCondition(nextCondition);
     if (firstDevice) {
       setSelectedDeviceId(firstDevice.id);
     }
+    setSelectedPaymentId("cash");
   }
 
   function handleCalculate() {
@@ -592,13 +610,29 @@ export default function Home() {
             </div>
           </div>
 
+          <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-[#111923] p-4">
+            <input
+              type="checkbox"
+              checked={!hasTradeIn}
+              onChange={(event) => {
+                setHasTradeIn(!event.target.checked);
+                setHasCalculated(false);
+              }}
+              className="h-4 w-4 accent-[#00e5ff]"
+            />
+            <span className="text-sm font-semibold text-white">
+              No tengo equipo para plan canje
+            </span>
+          </label>
+
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-2">
               <span className="text-sm font-medium text-[#dfe6ee]">Modelo</span>
               <select
                 value={currentModelName}
+                disabled={!hasTradeIn}
                 onChange={(event) => handleModelChange(event.target.value)}
-                className="h-12 rounded-md border border-white/10 bg-[#111923] px-3 text-base text-white outline-none transition focus:border-[#00e5ff] focus:ring-4 focus:ring-[#00e5ff]/15"
+                className="h-12 rounded-md border border-white/10 bg-[#111923] px-3 text-base text-white outline-none transition focus:border-[#00e5ff] focus:ring-4 focus:ring-[#00e5ff]/15 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {phoneModels.map((model) => (
                   <option key={model.name} value={model.name}>
@@ -612,11 +646,12 @@ export default function Home() {
               <span className="text-sm font-medium text-[#dfe6ee]">Memoria</span>
               <select
                 value={storage}
+                disabled={!hasTradeIn}
                 onChange={(event) => {
                   setStorage(event.target.value);
                   setHasCalculated(false);
                 }}
-                className="h-12 rounded-md border border-white/10 bg-[#111923] px-3 text-base text-white outline-none transition focus:border-[#00e5ff] focus:ring-4 focus:ring-[#00e5ff]/15"
+                className="h-12 rounded-md border border-white/10 bg-[#111923] px-3 text-base text-white outline-none transition focus:border-[#00e5ff] focus:ring-4 focus:ring-[#00e5ff]/15 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {currentModel.storage.map((option) => (
                   <option key={option} value={option}>
@@ -649,11 +684,12 @@ export default function Home() {
                   step="1"
                   inputMode="numeric"
                   value={battery}
+                  disabled={!hasTradeIn}
                   onChange={(event) => {
                     setBattery(clampBattery(Number(event.target.value)));
                     setHasCalculated(false);
                   }}
-                  className="h-full w-full rounded-md bg-transparent px-3 pr-10 text-base text-white outline-none transition focus:ring-4 focus:ring-[#00e5ff]/15"
+                  className="h-full w-full rounded-md bg-transparent px-3 pr-10 text-base text-white outline-none transition focus:ring-4 focus:ring-[#00e5ff]/15 disabled:cursor-not-allowed disabled:opacity-45"
                 />
                 <span className="pointer-events-none absolute right-3 text-sm font-semibold text-[#72f3ff]">
                   %
@@ -665,11 +701,12 @@ export default function Home() {
               <span className="text-sm font-medium text-[#dfe6ee]">Color</span>
               <select
                 value={color}
+                disabled={!hasTradeIn}
                 onChange={(event) => {
                   setColor(event.target.value);
                   setHasCalculated(false);
                 }}
-                className="h-12 rounded-md border border-white/10 bg-[#111923] px-3 text-base text-white outline-none transition focus:border-[#00e5ff] focus:ring-4 focus:ring-[#00e5ff]/15"
+                className="h-12 rounded-md border border-white/10 bg-[#111923] px-3 text-base text-white outline-none transition focus:border-[#00e5ff] focus:ring-4 focus:ring-[#00e5ff]/15 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {currentModel.colors.map((option) => (
                   <option key={option} value={option}>
@@ -691,49 +728,61 @@ export default function Home() {
 
         {hasCalculated ? (
           <>
-            <section className="rounded-lg border border-[#00e5ff]/25 bg-[#081018] p-4 text-white shadow-[0_0_44px_rgba(0,229,255,0.08)] sm:p-6">
-              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#72f3ff]">
-                Cotizacion de tu equipo
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold">
-                {currentModelName} {storage}
-              </h2>
-              <dl className="mt-5 grid gap-3 text-sm">
-                <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
-                  <dt className="text-[#9aa7b4]">Color</dt>
-                  <dd className="text-right font-medium">{color}</dd>
-                </div>
-                <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
-                  <dt className="text-[#9aa7b4]">Bateria</dt>
-                  <dd className="font-medium">{battery}%</dd>
-                </div>
-                <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
-                  <dt className="text-[#9aa7b4]">Dolar blue</dt>
-                  <dd className="font-medium">{currency.format(activeDollarRate)}</dd>
-                </div>
-              </dl>
-
-              {customerQuote ? (
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <article className="rounded-lg border border-white/10 bg-white/[0.07] p-4">
-                    <p className="text-sm text-[#9aa7b4]">Valor estimado</p>
-                    <strong className="mt-2 block text-2xl text-white">
-                      US$ {customerQuote.usdPrice}
-                    </strong>
-                  </article>
-                  <article className="rounded-lg border border-white/10 bg-white/[0.07] p-4">
-                    <p className="text-sm text-[#9aa7b4]">Equivalente en pesos</p>
-                    <strong className="mt-2 block text-2xl text-white">
-                      {currency.format(customerQuote.pesosPrice)}
-                    </strong>
-                  </article>
-                </div>
-              ) : (
-                <p className="mt-5 rounded-md border border-[#ff00c8]/25 bg-[#ff00c8]/10 px-3 py-2 text-sm text-[#ffd7f5]">
-                  Todavia no hay una cotizacion cargada para este modelo y memoria.
+            {hasTradeIn ? (
+              <section className="rounded-lg border border-[#00e5ff]/25 bg-[#081018] p-4 text-white shadow-[0_0_44px_rgba(0,229,255,0.08)] sm:p-6">
+                <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#72f3ff]">
+                  Cotizacion de tu equipo
                 </p>
-              )}
-            </section>
+                <h2 className="mt-2 text-2xl font-semibold">
+                  {currentModelName} {storage}
+                </h2>
+                <dl className="mt-5 grid gap-3 text-sm">
+                  <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                    <dt className="text-[#9aa7b4]">Color</dt>
+                    <dd className="text-right font-medium">{color}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                    <dt className="text-[#9aa7b4]">Bateria</dt>
+                    <dd className="font-medium">{battery}%</dd>
+                  </div>
+                  <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                    <dt className="text-[#9aa7b4]">Dolar blue</dt>
+                    <dd className="font-medium">{currency.format(activeDollarRate)}</dd>
+                  </div>
+                </dl>
+
+                {customerQuote ? (
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <article className="rounded-lg border border-white/10 bg-white/[0.07] p-4">
+                      <p className="text-sm text-[#9aa7b4]">Valor estimado</p>
+                      <strong className="mt-2 block text-2xl text-white">
+                        US$ {customerQuote.usdPrice}
+                      </strong>
+                    </article>
+                    <article className="rounded-lg border border-white/10 bg-white/[0.07] p-4">
+                      <p className="text-sm text-[#9aa7b4]">Equivalente en pesos</p>
+                      <strong className="mt-2 block text-2xl text-white">
+                        {currency.format(customerQuote.pesosPrice)}
+                      </strong>
+                    </article>
+                  </div>
+                ) : (
+                  <p className="mt-5 rounded-md border border-[#ff00c8]/25 bg-[#ff00c8]/10 px-3 py-2 text-sm text-[#ffd7f5]">
+                    Todavia no hay una cotizacion cargada para este modelo y memoria.
+                  </p>
+                )}
+              </section>
+            ) : (
+              <section className="rounded-lg border border-[#00e5ff]/25 bg-[#081018] p-4 text-white shadow-[0_0_44px_rgba(0,229,255,0.08)] sm:p-6">
+                <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#72f3ff]">
+                  Compra sin plan canje
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold">No se descuenta equipo usado</h2>
+                <p className="mt-2 text-sm text-[#9aa7b4]">
+                  La cotizacion se calcula sobre el valor completo del equipo elegido.
+                </p>
+              </section>
+            )}
 
             <section className="rounded-lg border border-white/10 bg-[#0b1118] p-4 shadow-sm sm:p-6">
               <h2 className="text-xl font-semibold text-white">Que equipo estas buscando?</h2>
@@ -772,44 +821,53 @@ export default function Home() {
                 </p>
 
                 <div className="mt-5 grid gap-3">
-                  {availableDevices.map((device) => (
-                    <label
-                      key={device.id}
-                      className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-4 transition ${
-                        selectedDevice?.id === device.id
-                          ? "border-[#00e5ff] bg-[#00e5ff]/10"
-                          : "border-white/10 bg-[#111923] hover:border-[#ff00c8]/45"
-                      }`}
-                    >
-                      <span className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="device"
-                          value={device.id}
-                          checked={selectedDevice?.id === device.id}
-                          onChange={(event) => setSelectedDeviceId(event.target.value)}
-                          className="h-4 w-4 accent-[#00e5ff]"
-                        />
-                        <span>
-                          <span className="block font-semibold text-white">
-                            {getDeviceLabel(device)}
-                          </span>
-                          <span className="block text-sm text-[#9aa7b4]">
-                            {device.color} · {device.stock}
-                            {device.battery ? ` · Bateria ${device.battery}%` : ""}
+                  {availableDevices.length > 0 ? (
+                    availableDevices.map((device) => (
+                      <label
+                        key={device.id}
+                        className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-4 transition ${
+                          selectedDevice?.id === device.id
+                            ? "border-[#00e5ff] bg-[#00e5ff]/10"
+                            : "border-white/10 bg-[#111923] hover:border-[#ff00c8]/45"
+                        }`}
+                      >
+                        <span className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="device"
+                            value={device.id}
+                            checked={selectedDevice?.id === device.id}
+                            onChange={(event) => {
+                              setSelectedDeviceId(event.target.value);
+                              setSelectedPaymentId("cash");
+                            }}
+                            className="h-4 w-4 accent-[#00e5ff]"
+                          />
+                          <span>
+                            <span className="block font-semibold text-white">
+                              {getDeviceLabel(device)}
+                            </span>
+                            <span className="block text-sm text-[#9aa7b4]">
+                              {device.color} · {device.stock}
+                              {device.battery ? ` · Bateria ${device.battery}%` : ""}
+                            </span>
                           </span>
                         </span>
-                      </span>
-                      <strong className="shrink-0 text-right text-[#72f3ff]">
-                        US$ {device.usdPrice}
-                      </strong>
-                    </label>
-                  ))}
+                        <strong className="shrink-0 text-right text-[#72f3ff]">
+                          US$ {device.usdPrice}
+                        </strong>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="rounded-md border border-[#ff00c8]/25 bg-[#ff00c8]/10 px-3 py-2 text-sm text-[#ffd7f5]">
+                      No hay equipos de mayor valor para mostrar con esta cotizacion.
+                    </p>
+                  )}
                 </div>
               </section>
             ) : null}
 
-            {!isDeviceLoading && condition ? (
+            {!isDeviceLoading && condition && selectedDevice ? (
               <section className="rounded-lg border border-[#00e5ff]/25 bg-[#081018] p-4 text-white shadow-[0_0_44px_rgba(0,229,255,0.08)] sm:p-6">
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#72f3ff]">
                 Cotizacion
@@ -818,14 +876,30 @@ export default function Home() {
                 {selectedDevice ? getDeviceLabel(selectedDevice) : "Sin equipo"}
               </h2>
               <p className="mt-2 text-sm text-[#9aa7b4]">
-                Los importes de contado y cuotas salen de la hoja "simular cuotas".
+                Te mostramos el valor del equipo elegido y la diferencia descontando tu iPhone.
               </p>
               {selectedDevice ? (
                 <>
                   <dl className="mt-5 grid gap-3 text-sm">
                     <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
-                      <dt className="text-[#9aa7b4]">Precio USD planilla</dt>
-                      <dd className="font-medium">US$ {quoteUsdPrice}</dd>
+                      <dt className="text-[#9aa7b4]">Valor del equipo</dt>
+                      <dd className="text-right font-medium">
+                        US$ {selectedDeviceUsdPrice} / {currency.format(selectedDevicePesoPrice)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                      <dt className="text-[#9aa7b4]">Valor tomado</dt>
+                      <dd className="text-right font-medium">
+                        {hasTradeIn
+                          ? `US$ ${tradeInUsdPrice} / ${currency.format(tradeInPesoPrice)}`
+                          : "Sin plan canje"}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                      <dt className="text-[#9aa7b4]">Diferencia a pagar</dt>
+                      <dd className="text-right font-semibold text-[#72f3ff]">
+                        US$ {differenceUsdPrice} / {currency.format(differenceCashPrice)}
+                      </dd>
                     </div>
                     <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
                       <dt className="text-[#9aa7b4]">Dolar blue</dt>
@@ -834,7 +908,9 @@ export default function Home() {
                     <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
                       <dt className="text-[#9aa7b4]">Tu equipo</dt>
                       <dd className="text-right font-medium">
-                        {currentModelName}, {storage}, {color}, {battery}%
+                        {hasTradeIn
+                          ? `${currentModelName}, ${storage}, ${color}, ${battery}%`
+                          : "No entrega equipo"}
                       </dd>
                     </div>
                     <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
@@ -853,9 +929,15 @@ export default function Home() {
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
                     {paymentOptions.map((option) => (
-                      <article
+                      <button
+                        type="button"
                         key={option.label}
-                        className="rounded-lg border border-white/10 bg-white/[0.07] p-4"
+                        onClick={() => setSelectedPaymentId(option.id)}
+                        className={`rounded-lg border p-4 text-left transition ${
+                          selectedPayment?.id === option.id
+                            ? "border-[#00e5ff] bg-[#00e5ff]/10"
+                            : "border-white/10 bg-white/[0.07] hover:border-[#ff00c8]/45"
+                        }`}
                       >
                         <p className="text-sm text-[#9aa7b4]">{option.label}</p>
                         <strong className="mt-2 block text-2xl text-white">
@@ -864,7 +946,7 @@ export default function Home() {
                         <span className="mt-1 block text-sm text-[#c9d2dc]">
                           {option.detail}
                         </span>
-                      </article>
+                      </button>
                     ))}
                   </div>
 
